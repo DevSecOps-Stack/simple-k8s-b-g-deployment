@@ -1,0 +1,134 @@
+1. Deploy below yaml file as blue deployment
+Deployment YAML for "msi-cf-stg" namespace (Blue Environment): name it as blue-deployment.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: your-app-stg
+  namespace: msi-cf-stg
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: your-app
+  template:
+    metadata:
+      labels:
+        app: your-app
+    spec:
+      containers:
+        - name: your-app-container
+          image: your-app:v1  # Update with your image version
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: your-app-stg-service
+  namespace: msi-cf-stg
+spec:
+  selector:
+    app: your-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+2. Deploy below yaml file as green deployment
+Deployment YAML for "msi-cf-grn" namespace (green Environment): name it as green-deployment.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: your-app-grn
+  namespace: msi-cf-grn
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: your-app
+  template:
+    metadata:
+      labels:
+        app: your-app
+    spec:
+      containers:
+        - name: your-app-container
+          image: your-app:v2  # Update with your new image version
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: your-app-grn-service
+  namespace: msi-cf-grn
+spec:
+  selector:
+    app: your-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+3. Deploy below yaml file as ingress controller for switching between services
+Ingress YAML (assuming you have an Ingress Controller configured, like Nginx Ingress):  
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: your-app-ingress
+spec:
+  rules:
+    - host: your-app.example.com  # Update with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: your-app-stg-service
+                port:
+                  number: 80
+
+This setup creates separate deployments and services for the blue and green environments, and an Ingress resource to route traffic to the blue environment. When you want to perform a blue-green deployment, you can update the green environment, and once the validation is complete, you can update the Ingress resource to route traffic to the green environment. This allows you to easily switch between blue and green deployments while maintaining traffic distribution.
+
+4. commands for implementation
+
+Save the Blue Deployment YAML to a file, for example, blue-deployment.yaml. Then use the kubectl command to apply it:
+kubectl apply -f blue-deployment.yaml
+This will create a Deployment and a Service for the blue environment in the msi-cf-stg namespace.
+
+Deploy the Green Deployment:
+Save the Green Deployment YAML to a file, for example, green-deployment.yaml. Then use the kubectl command to apply it:
+kubectl apply -f green-deployment.yaml
+
+Deploy the Ingress Controller:
+You mentioned that you have an Ingress Controller (e.g., Nginx Ingress) configured. Make sure your Ingress Controller is already set up and running. Save the Ingress YAML to a file, for example, your-app-ingress.yaml, and apply it:
+
+kubectl apply -f your-app-ingress.yaml
+
+This Ingress resource routes traffic from the specified host to the blue environment initially. Ensure that you have the necessary DNS configuration or hosts file entries for your-app.example.com pointing to the IP address of your Kubernetes cluster.
+To switch from the blue environment to the green environment during a blue-green deployment:
+Update the Green Deployment: Make the necessary changes in your green deployment YAML file, for example, update the your-app:v2 image version.
+Apply the updated Green Deployment:
+
+kubectl apply -f green-deployment.yaml
+
+Update the Ingress Resource: To route traffic to the green environment, edit the Ingress resource or create a new one pointing to the green service. You can use the following below to update the ingress yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: your-app-ingress
+spec:
+  rules:
+    - host: your-app.example.com  # Update with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: your-app-grn-service  # Updated to point to the green service
+                port:
+                  number: 80
+
+kubectl apply -f your-app-ingress.yaml
